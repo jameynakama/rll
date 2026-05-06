@@ -19,6 +19,14 @@ const defaultLimit = 20
 const availableChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~/"
 const maxURLLength = 2048
 
+func generateReallyLongUrl() string {
+	b := make([]byte, maxURLLength)
+	for i := range b {
+		b[i] = availableChars[rand.Intn(len(availableChars))]
+	}
+	return string(b)
+}
+
 type createLinkRequest struct {
 	OriginalUrl string `json:"original_url"`
 }
@@ -88,14 +96,9 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reallyLongUrl := make([]byte, maxURLLength)
-	for i := range reallyLongUrl {
-		reallyLongUrl[i] = availableChars[rand.Intn(len(availableChars))]
-	}
-
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
 		OriginalUrl:   req.OriginalUrl,
-		ReallyLongUrl: string(reallyLongUrl),
+		ReallyLongUrl: generateReallyLongUrl(),
 	})
 	if err != nil {
 		log.Printf("createLink: %v", err)
