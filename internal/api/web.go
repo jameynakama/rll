@@ -3,6 +3,7 @@ package api
 import (
 	"embed"
 	"html/template"
+	"log"
 	"net/http"
 )
 
@@ -24,7 +25,9 @@ type resultData struct {
 }
 
 func (h *Handler) webIndex(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	if err := indexTmpl.Execute(w, indexData{}); err != nil {
+		log.Printf("webIndex: %v", err)
+	}
 }
 
 func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {

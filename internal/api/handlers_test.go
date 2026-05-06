@@ -275,6 +275,19 @@ func TestDeleteLink(t *testing.T) {
 	}
 }
 
+func TestWebIndex(t *testing.T) {
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Really Long Link") {
+		t.Errorf("expected 'Really Long Link' in body; got %s", w.Body.String())
+	}
+}
+
 func TestRedirectToOriginalUrl404(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
