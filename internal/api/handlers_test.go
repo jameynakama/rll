@@ -275,6 +275,38 @@ func TestDeleteLink(t *testing.T) {
 	}
 }
 
+func TestWebCreateLink(t *testing.T) {
+	truncate(t)
+	srv := newTestServer(t)
+	body := strings.NewReader("original_url=https%3A%2F%2Fexample.com")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("expected 303; got %d: %s", w.Code, w.Body.String())
+	}
+	loc := w.Result().Header.Get("Location")
+	if !strings.HasPrefix(loc, "/links/") {
+		t.Errorf("expected redirect to /links/{id}; got %s", loc)
+	}
+}
+
+func TestWebCreateLinkEmptyURL(t *testing.T) {
+	srv := newTestServer(t)
+	body := strings.NewReader("original_url=")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "original url is required") {
+		t.Errorf("expected error message in body; got %s", w.Body.String())
+	}
+}
+
 func TestWebIndex(t *testing.T) {
 	srv := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
