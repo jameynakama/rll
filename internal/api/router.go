@@ -32,6 +32,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/links", h.listLinks)
+		r.Get("/rll/*", h.redirectToOriginalUrl)
 		r.Post("/links", h.createLink)
 		r.Get("/links/{id}", h.getLink)
 		r.Put("/links/{id}", h.updateLink)

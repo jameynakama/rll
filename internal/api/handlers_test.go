@@ -186,11 +186,12 @@ func TestGetLink(t *testing.T) {
 	}
 }
 
+// Should create a new link with the given original and a very long url
 func TestCreateLink(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
 
-	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
+	body := strings.NewReader(`{"original_url":"https://example.com"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -203,6 +204,12 @@ func TestCreateLink(t *testing.T) {
 	var created store.Link
 	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
 		t.Fatalf("error decoding response: %v", err)
+	}
+	if created.OriginalUrl != "https://example.com" {
+		t.Errorf("expected original url 'https://example.com'; got '%s'", created.OriginalUrl)
+	}
+	if created.ReallyLongUrl == "" {
+		t.Errorf("expected really long url; got empty")
 	}
 	if _, err := store.New(testPool).GetLink(context.Background(), created.ID); err != nil {
 		t.Errorf("created link not found in db: %v", err)
@@ -265,5 +272,32 @@ func TestDeleteLink(t *testing.T) {
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusNotFound {
 		t.Errorf("expected 404 after delete; got %d", w.Result().StatusCode)
+	}
+}
+
+func TestRedirectToOriginalUrl404(t *testing.T) {
+	truncate(t)
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/doesnotexist", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404; got %d", w.Result().StatusCode)
+	}
+}
+
+func TestRedirectToOriginalUrl(t *testing.T) {
+	truncate(t)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
+
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/rll/%s", link.ReallyLongUrl), nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusMovedPermanently {
+		t.Errorf("expected 301; got %d", w.Result().StatusCode)
+	}
+	if w.Result().Header.Get("Location") != link.OriginalUrl {
+		t.Errorf("expected location %s; got %s", link.OriginalUrl, w.Result().Header.Get("Location"))
 	}
 }

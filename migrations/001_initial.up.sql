@@ -8,7 +8,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE links (
     id          BIGSERIAL   PRIMARY KEY,
-    original_url    TEXT        NOT NULL UNIQUE,
+    original_url    TEXT        NOT NULL,
     really_long_url    TEXT        NOT NULL UNIQUE,
     create_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     update_time TIMESTAMPTZ NOT NULL DEFAULT NOW()

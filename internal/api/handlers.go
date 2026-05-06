@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -13,10 +16,11 @@ import (
 )
 
 const defaultLimit = 20
+const availableChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~/"
+const maxURLLength = 2048
 
 type createLinkRequest struct {
-	OriginalUrl   string `json:"original_url"`
-	ReallyLongUrl string `json:"really_long_url"`
+	OriginalUrl string `json:"original_url"`
 }
 
 type updateLinkRequest struct {
@@ -84,9 +88,14 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	reallyLongUrl := make([]byte, maxURLLength)
+	for i := range reallyLongUrl {
+		reallyLongUrl[i] = availableChars[rand.Intn(len(availableChars))]
+	}
+
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
 		OriginalUrl:   req.OriginalUrl,
-		ReallyLongUrl: req.ReallyLongUrl,
+		ReallyLongUrl: string(reallyLongUrl),
 	})
 	if err != nil {
 		log.Printf("createLink: %v", err)
@@ -146,4 +155,26 @@ func (h *Handler) deleteLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) redirectToOriginalUrl(w http.ResponseWriter, r *http.Request) {
+	rawLink, _ := strings.CutPrefix(r.RequestURI, "/api/v1/rll/")
+	reallyLongLink, err := url.PathUnescape(rawLink)
+	if err != nil {
+		log.Printf("redirectToOriginalUrl: unescape: %v", err)
+		writeError(w, http.StatusBadRequest, "invalid url")
+		return
+	}
+	row, err := h.queries.GetLinkByReallyLongUrl(r.Context(), reallyLongLink)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		log.Printf("redirectToOriginalUrl: %v", err)
+		writeError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+
+	http.Redirect(w, r, row.OriginalUrl, http.StatusMovedPermanently)
 }
