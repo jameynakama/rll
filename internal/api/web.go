@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -82,7 +83,7 @@ func (h *Handler) webGetLink(w http.ResponseWriter, r *http.Request) {
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		scheme = proto
 	}
-	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s", scheme, r.Host, row.ReallyLongUrl)
+	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s", scheme, r.Host, url.PathEscape(row.ReallyLongUrl))
 
 	if err := resultTmpl.Execute(w, resultData{
 		OriginalUrl: row.OriginalUrl,

@@ -361,6 +361,9 @@ func TestWebGetLink(t *testing.T) {
 	if !strings.Contains(w.Body.String(), link.OriginalUrl) {
 		t.Errorf("expected original url in body; got %s", w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), "localhost:8080") {
+		t.Errorf("expected redirect url in body; got %s", w.Body.String())
+	}
 }
 
 func TestWebGetLink404(t *testing.T) {
