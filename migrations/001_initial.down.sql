@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS links;
 DROP FUNCTION IF EXISTS set_update_time;

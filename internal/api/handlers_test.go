@@ -87,22 +87,22 @@ func newTestServer(t *testing.T) http.Handler {
 
 func truncate(t *testing.T) {
 	t.Helper()
-	_, err := testPool.Exec(context.Background(), "TRUNCATE users RESTART IDENTITY CASCADE")
+	_, err := testPool.Exec(context.Background(), "TRUNCATE links RESTART IDENTITY CASCADE")
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 }
 
-func createTestUser(t *testing.T, username string, isAdmin bool) store.User {
+func createTestLink(t *testing.T, originalUrl string, reallyLongUrl string) store.Link {
 	t.Helper()
-	user, err := store.New(testPool).CreateUser(context.Background(), store.CreateUserParams{
-		Username: username,
-		IsAdmin:  isAdmin,
+	link, err := store.New(testPool).CreateLink(context.Background(), store.CreateLinkParams{
+		OriginalUrl:   originalUrl,
+		ReallyLongUrl: reallyLongUrl,
 	})
 	if err != nil {
-		t.Fatalf("createTestUser: %v", err)
+		t.Fatalf("createTestLink: %v", err)
 	}
-	return user
+	return link
 }
 
 func getDBName(dbURL string) string {
@@ -129,15 +129,15 @@ func TestGetDBName(t *testing.T) {
 	}
 }
 
-func TestListUsers(t *testing.T) {
+func TestListLinks(t *testing.T) {
 	truncate(t)
 
 	for i := range 3 {
-		createTestUser(t, fmt.Sprintf("user%d", i), false)
+		createTestLink(t, fmt.Sprintf("https://example.com/%d", i), fmt.Sprintf("https://example.com/reallylongurl/%d", i))
 	}
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/links", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -145,19 +145,19 @@ func TestListUsers(t *testing.T) {
 		t.Errorf("expected 200; got %d", w.Result().StatusCode)
 	}
 
-	var users []store.User
-	if err := json.NewDecoder(w.Body).Decode(&users); err != nil {
+	var links []store.Link
+	if err := json.NewDecoder(w.Body).Decode(&links); err != nil {
 		t.Fatalf("error decoding response: %v", err)
 	}
-	if len(users) != 3 {
-		t.Errorf("expected 3 users; got %d", len(users))
+	if len(links) != 3 {
+		t.Errorf("expected 3 links; got %d", len(links))
 	}
 }
 
-func TestGetUser404(t *testing.T) {
+func TestGetLink404(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/666", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/links/666", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusNotFound {
@@ -165,12 +165,12 @@ func TestGetUser404(t *testing.T) {
 	}
 }
 
-func TestGetUser(t *testing.T) {
+func TestGetLink(t *testing.T) {
 	truncate(t)
-	user := createTestUser(t, "jamey", false)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/users/%d", user.ID), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -178,20 +178,20 @@ func TestGetUser(t *testing.T) {
 		t.Fatalf("expected 200; got %d", w.Result().StatusCode)
 	}
 
-	if err := json.NewDecoder(w.Body).Decode(&user); err != nil {
+	if err := json.NewDecoder(w.Body).Decode(&link); err != nil {
 		t.Fatalf("error decoding response: %v", err)
 	}
-	if user.Username != "jamey" {
-		t.Errorf("expected username 'jamey'; got '%s'", user.Username)
+	if link.OriginalUrl != "https://example.com" {
+		t.Errorf("expected original url 'https://example.com'; got '%s'", link.OriginalUrl)
 	}
 }
 
-func TestCreateUser(t *testing.T) {
+func TestCreateLink(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
 
-	body := strings.NewReader(`{"username":"newuser","is_admin":false}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users", body)
+	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -200,21 +200,21 @@ func TestCreateUser(t *testing.T) {
 		t.Fatalf("expected 201; got %d: %s", w.Result().StatusCode, w.Body.String())
 	}
 
-	var created store.User
+	var created store.Link
 	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
 		t.Fatalf("error decoding response: %v", err)
 	}
-	if _, err := store.New(testPool).GetUser(context.Background(), created.ID); err != nil {
-		t.Errorf("created user not found in db: %v", err)
+	if _, err := store.New(testPool).GetLink(context.Background(), created.ID); err != nil {
+		t.Errorf("created link not found in db: %v", err)
 	}
 }
 
-func TestUpdateUser404(t *testing.T) {
+func TestUpdateLink404(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
 
-	body := strings.NewReader(`{"username":"updated","is_admin":false}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/users/666", body)
+	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/links/666", body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -224,13 +224,13 @@ func TestUpdateUser404(t *testing.T) {
 	}
 }
 
-func TestUpdateUser(t *testing.T) {
+func TestUpdateLink(t *testing.T) {
 	truncate(t)
-	user := createTestUser(t, "original", false)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
 
 	srv := newTestServer(t)
-	body := strings.NewReader(`{"username":"updated","is_admin":true}`)
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/users/%d", user.ID), body)
+	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/links/%d", link.ID), body)
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -239,23 +239,20 @@ func TestUpdateUser(t *testing.T) {
 		t.Fatalf("expected 200; got %d", w.Result().StatusCode)
 	}
 
-	if err := json.NewDecoder(w.Body).Decode(&user); err != nil {
+	if err := json.NewDecoder(w.Body).Decode(&link); err != nil {
 		t.Fatalf("error decoding response: %v", err)
 	}
-	if user.Username != "updated" {
-		t.Errorf("expected username 'updated'; got '%s'", user.Username)
-	}
-	if !user.IsAdmin {
-		t.Errorf("expected is_admin true; got false")
+	if link.OriginalUrl != "https://example.com" {
+		t.Errorf("expected original url 'https://example.com'; got '%s'", link.OriginalUrl)
 	}
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDeleteLink(t *testing.T) {
 	truncate(t)
-	user := createTestUser(t, "todelete", false)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/users/%d", user.ID), nil)
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 
@@ -264,7 +261,7 @@ func TestDeleteUser(t *testing.T) {
 	}
 
 	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/users/%d", user.ID), nil)
+	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusNotFound {
 		t.Errorf("expected 404 after delete; got %d", w.Result().StatusCode)

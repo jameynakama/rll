@@ -63,15 +63,13 @@ Server starts on `http://localhost:8080` (or whatever `PORT` is set to).
 
 ## API
 
-Routes below reflect the starter `users` resource -- replace with your own.
-
 ```
 GET    /health
-GET    /api/v1/users?limit=20&offset=0
-GET    /api/v1/users/{id}
-POST   /api/v1/users
-PUT    /api/v1/users/{id}
-DELETE /api/v1/users/{id}
+GET    /api/v1/links?limit=20&offset=0
+GET    /api/v1/links/{id}
+POST   /api/v1/links
+PUT    /api/v1/links/{id}
+DELETE /api/v1/links/{id}
 ```
 
 ## Adding a New Resource

@@ -9,80 +9,80 @@ import (
 	"context"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, is_admin)
+const createLink = `-- name: CreateLink :one
+INSERT INTO links (original_url, really_long_url)
 VALUES ($1, $2)
-RETURNING id, username, is_admin, create_time, update_time
+RETURNING id, original_url, really_long_url, create_time, update_time
 `
 
-type CreateUserParams struct {
-	Username string `db:"username" json:"username"`
-	IsAdmin  bool   `db:"is_admin" json:"is_admin"`
+type CreateLinkParams struct {
+	OriginalUrl   string `db:"original_url" json:"original_url"`
+	ReallyLongUrl string `db:"really_long_url" json:"really_long_url"`
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Username, arg.IsAdmin)
-	var i User
+func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
+	row := q.db.QueryRow(ctx, createLink, arg.OriginalUrl, arg.ReallyLongUrl)
+	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
-		&i.IsAdmin,
+		&i.OriginalUrl,
+		&i.ReallyLongUrl,
 		&i.CreateTime,
 		&i.UpdateTime,
 	)
 	return i, err
 }
 
-const deleteUser = `-- name: DeleteUser :exec
-DELETE FROM users WHERE id = $1
+const deleteLink = `-- name: DeleteLink :exec
+DELETE FROM links WHERE id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteUser, id)
+func (q *Queries) DeleteLink(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteLink, id)
 	return err
 }
 
-const getUser = `-- name: GetUser :one
-SELECT id, username, is_admin, create_time, update_time FROM users WHERE id = $1
+const getLink = `-- name: GetLink :one
+SELECT id, original_url, really_long_url, create_time, update_time FROM links WHERE id = $1
 `
 
-func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
-	row := q.db.QueryRow(ctx, getUser, id)
-	var i User
+func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
+	row := q.db.QueryRow(ctx, getLink, id)
+	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
-		&i.IsAdmin,
+		&i.OriginalUrl,
+		&i.ReallyLongUrl,
 		&i.CreateTime,
 		&i.UpdateTime,
 	)
 	return i, err
 }
 
-const listUsers = `-- name: ListUsers :many
-SELECT id, username, is_admin, create_time, update_time FROM users
+const listLinks = `-- name: ListLinks :many
+SELECT id, original_url, really_long_url, create_time, update_time FROM links
 ORDER BY create_time DESC
 LIMIT $1 OFFSET $2
 `
 
-type ListUsersParams struct {
+type ListLinksParams struct {
 	Limit  int32 `db:"limit" json:"limit"`
 	Offset int32 `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
+func (q *Queries) ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error) {
+	rows, err := q.db.Query(ctx, listLinks, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []Link
 	for rows.Next() {
-		var i User
+		var i Link
 		if err := rows.Scan(
 			&i.ID,
-			&i.Username,
-			&i.IsAdmin,
+			&i.OriginalUrl,
+			&i.ReallyLongUrl,
 			&i.CreateTime,
 			&i.UpdateTime,
 		); err != nil {
@@ -96,26 +96,26 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 	return items, nil
 }
 
-const updateUser = `-- name: UpdateUser :one
-UPDATE users
-SET username = $2, is_admin = $3
+const updateLink = `-- name: UpdateLink :one
+UPDATE links
+SET original_url = $2, really_long_url = $3
 WHERE id = $1
-RETURNING id, username, is_admin, create_time, update_time
+RETURNING id, original_url, really_long_url, create_time, update_time
 `
 
-type UpdateUserParams struct {
-	ID       int64  `db:"id" json:"id"`
-	Username string `db:"username" json:"username"`
-	IsAdmin  bool   `db:"is_admin" json:"is_admin"`
+type UpdateLinkParams struct {
+	ID            int64  `db:"id" json:"id"`
+	OriginalUrl   string `db:"original_url" json:"original_url"`
+	ReallyLongUrl string `db:"really_long_url" json:"really_long_url"`
 }
 
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUser, arg.ID, arg.Username, arg.IsAdmin)
-	var i User
+func (q *Queries) UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error) {
+	row := q.db.QueryRow(ctx, updateLink, arg.ID, arg.OriginalUrl, arg.ReallyLongUrl)
+	var i Link
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
-		&i.IsAdmin,
+		&i.OriginalUrl,
+		&i.ReallyLongUrl,
 		&i.CreateTime,
 		&i.UpdateTime,
 	)

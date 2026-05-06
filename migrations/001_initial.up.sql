@@ -6,15 +6,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TABLE users (
+CREATE TABLE links (
     id          BIGSERIAL   PRIMARY KEY,
-    username    TEXT        NOT NULL UNIQUE,
-    is_admin    BOOLEAN     NOT NULL DEFAULT FALSE,
+    original_url    TEXT        NOT NULL UNIQUE,
+    really_long_url    TEXT        NOT NULL UNIQUE,
     create_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     update_time TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TRIGGER set_update_time_before_update
-    BEFORE UPDATE ON users
+    BEFORE UPDATE ON links
     FOR EACH ROW
     EXECUTE FUNCTION set_update_time();

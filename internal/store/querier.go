@@ -9,11 +9,11 @@ import (
 )
 
 type Querier interface {
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteUser(ctx context.Context, id int64) error
-	GetUser(ctx context.Context, id int64) (User, error)
-	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
-	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
+	DeleteLink(ctx context.Context, id int64) error
+	GetLink(ctx context.Context, id int64) (Link, error)
+	ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error)
+	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
 }
 
 var _ Querier = (*Queries)(nil)

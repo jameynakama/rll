@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type User struct {
-	ID         int64              `db:"id" json:"id"`
-	Username   string             `db:"username" json:"username"`
-	IsAdmin    bool               `db:"is_admin" json:"is_admin"`
-	CreateTime pgtype.Timestamptz `db:"create_time" json:"create_time"`
-	UpdateTime pgtype.Timestamptz `db:"update_time" json:"update_time"`
+type Link struct {
+	ID            int64              `db:"id" json:"id"`
+	OriginalUrl   string             `db:"original_url" json:"original_url"`
+	ReallyLongUrl string             `db:"really_long_url" json:"really_long_url"`
+	CreateTime    pgtype.Timestamptz `db:"create_time" json:"create_time"`
+	UpdateTime    pgtype.Timestamptz `db:"update_time" json:"update_time"`
 }

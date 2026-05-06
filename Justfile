@@ -6,8 +6,8 @@ alias md := migrate-down
 default: test
 
 # Run all tests
-test:
-    go test ./...
+test args="":
+    go test {{ args }} ./...
 
 # Start the dev server
 run:
@@ -15,7 +15,7 @@ run:
 
 # Build binary
 build:
-    go build -o bin/APPNAME ./cmd/server
+    go build -o bin/reallylonglink ./cmd/server
 
 # Run pending migrations
 migrate-up:

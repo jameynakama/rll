@@ -1,21 +1,21 @@
--- name: ListUsers :many
-SELECT * FROM users
+-- name: ListLinks :many
+SELECT * FROM links
 ORDER BY create_time DESC
 LIMIT $1 OFFSET $2;
 
--- name: GetUser :one
-SELECT * FROM users WHERE id = $1;
+-- name: GetLink :one
+SELECT * FROM links WHERE id = $1;
 
--- name: CreateUser :one
-INSERT INTO users (username, is_admin)
+-- name: CreateLink :one
+INSERT INTO links (original_url, really_long_url)
 VALUES ($1, $2)
 RETURNING *;
 
--- name: UpdateUser :one
-UPDATE users
-SET username = $2, is_admin = $3
+-- name: UpdateLink :one
+UPDATE links
+SET original_url = $2, really_long_url = $3
 WHERE id = $1
 RETURNING *;
 
--- name: DeleteUser :exec
-DELETE FROM users WHERE id = $1;
+-- name: DeleteLink :exec
+DELETE FROM links WHERE id = $1;
