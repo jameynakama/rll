@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/GHUSER/APPNAME/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/store"
 )
 
 const defaultLimit = 20

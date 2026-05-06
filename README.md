@@ -1,11 +1,6 @@
-# go-crud-template
+# reallylonglink
 
-A minimal Go backend skeleton with full CRUD, Postgres, and integration tests.
-Clone it, find-replace `GHUSER` and `APPNAME`, and start building.
-
-I use `just` for running commands. If you don't want to use it, just take a look
-at the Justfile for the actual commands. You'll need to load your .env for most
-commands.
+HI
 
 ## Stack
 

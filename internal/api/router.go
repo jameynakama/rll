@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/GHUSER/APPNAME/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/store"
 )
 
 type RouterConfig struct {

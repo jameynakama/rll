@@ -1,4 +1,4 @@
-module github.com/GHUSER/APPNAME
+module github.com/jameynakama/reallylonglink
 
 go 1.26.1
 

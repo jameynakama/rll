@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/GHUSER/APPNAME/internal/api"
-	"github.com/GHUSER/APPNAME/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/api"
+	"github.com/jameynakama/reallylonglink/internal/store"
 )
 
 type config struct {
@@ -58,7 +58,7 @@ func main() {
 	routerCfg := api.RouterConfig{Queries: store.New(db)}
 	r := api.NewRouter(routerCfg)
 
-	log.Printf("starting server at localhost:%s", cfg.port)
+	log.Printf("starting server at http://localhost:%s", cfg.port)
 	if err := http.ListenAndServe(":"+cfg.port, r); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
