@@ -346,3 +346,30 @@ func TestRedirectToOriginalUrl(t *testing.T) {
 		t.Errorf("expected location %s; got %s", link.OriginalUrl, w.Result().Header.Get("Location"))
 	}
 }
+
+func TestWebGetLink(t *testing.T) {
+	truncate(t)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/links/%d", link.ID), nil)
+	req.Host = "localhost:8080"
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), link.OriginalUrl) {
+		t.Errorf("expected original url in body; got %s", w.Body.String())
+	}
+}
+
+func TestWebGetLink404(t *testing.T) {
+	truncate(t)
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/links/999", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404; got %d", w.Code)
+	}
+}
