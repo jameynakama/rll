@@ -9,9 +9,9 @@ default: test
 test args="":
     go test {{ args }} ./...
 
-# Start the dev server
+# Start the dev server with hot reload
 run:
-    go run ./cmd/server
+    air
 
 # Build binary
 build:
