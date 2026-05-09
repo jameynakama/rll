@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html>
-<body>
-<h1>Really Long Link</h1>
-<p><b>Link extension for the everyday Net Surfer</b></p>
-{{if .Error}}<p>{{.Error}}</p>{{end}}
-<form method="post" action="/">
-Original link: <input type="text" name="original_url"> <input type="submit" value="Make it really really long, please">
-</form>
-</body>
+    <head>
+        <style>
+            * {
+                font-size: 1.25rem;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Really Long Link</h1>
+        <p><b>Link extension for the everyday Net Surfer</b></p>
+        {{if .Error}}<p>{{.Error}}</p>{{end}}
+        <form method="post" action="/">
+        Original link: <input type="text" name="original_url"> <input type="submit" value="Make it really really long, please">
+        </form>
+    </body>
 </html>
