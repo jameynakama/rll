@@ -1,6 +1,6 @@
 # reallylonglink
 
-HI
+Make links really, really long
 
 ## Stack
 
@@ -8,16 +8,18 @@ HI
 - **[pgx/v5](https://github.com/jackc/pgx)** -- Postgres driver + connection pool
 - **[sqlc](https://sqlc.dev)** -- generates type-safe Go from SQL queries
 - **[golang-migrate](https://github.com/golang-migrate/migrate)** -- versioned migrations
+- **[air](https://github.com/air-verse/air)** -- hot reloading for server
 - **docker-compose** -- local Postgres, no host install needed
 - **[just](https://github.com/casey/just)** -- task runner
 
 ## Prerequisites
 
 - go
-- (optional) just
 - sqlc
 - golang-migrate
+- air (go install github.com/air-verse/air@latest)
 - Docker Desktop (or equivalent) for Postgres
+- (optional) just
 
 ## First Run
 
