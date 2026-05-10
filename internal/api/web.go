@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -25,6 +26,7 @@ var (
 
 type indexData struct {
 	Error string
+	Input string
 }
 
 type resultData struct {
@@ -40,9 +42,19 @@ func (h *Handler) webIndex(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 	originalUrl := r.FormValue("original_url")
+
 	if originalUrl == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		if err := indexTmpl.Execute(w, indexData{Error: "original url is required"}); err != nil {
+			log.Printf("webCreateLink: render: %v", err)
+		}
+		return
+	}
+
+	u, err := url.ParseRequestURI(originalUrl)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		if err := indexTmpl.Execute(w, indexData{Error: "please provide a url", Input: originalUrl}); err != nil {
 			log.Printf("webCreateLink: render: %v", err)
 		}
 		return

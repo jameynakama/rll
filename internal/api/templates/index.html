@@ -14,7 +14,8 @@
         <p>{{.Error}}</p>
         {{end}}
         <form method="post" action="/">
-            Original link: <input type="text" name="original_url" />
+            Original link:
+            <input type="text" name="original_url" value="{{.Input}}" />
             <input type="submit" value="Make it really really long, please" />
         </form>
     </body>

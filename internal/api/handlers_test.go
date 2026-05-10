@@ -307,6 +307,21 @@ func TestWebCreateLinkEmptyURL(t *testing.T) {
 	}
 }
 
+func TestWebCreateLinkBadURL(t *testing.T) {
+	srv := newTestServer(t)
+	body := strings.NewReader("original_url=woof")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "please provide a url") {
+		t.Errorf("expected error message in body; got %s", w.Body.String())
+	}
+}
+
 func TestWebIndex(t *testing.T) {
 	srv := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
