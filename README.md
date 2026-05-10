@@ -9,6 +9,7 @@ Make links really, really long
 - **[sqlc](https://sqlc.dev)** -- generates type-safe Go from SQL queries
 - **[golang-migrate](https://github.com/golang-migrate/migrate)** -- versioned migrations
 - **[air](https://github.com/air-verse/air)** -- hot reloading for server
+- **[gotestsum](https://github.com/gotestyourself/gotestsumr)** -- better go test output
 - **docker-compose** -- local Postgres, no host install needed
 - **[just](https://github.com/casey/just)** -- task runner
 

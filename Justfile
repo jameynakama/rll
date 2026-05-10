@@ -7,7 +7,7 @@ default: test
 
 # Run all tests
 test args="":
-    go test {{ args }} ./...
+    gotestsum {{ args }} ./...
 
 # Start the dev server with hot reload
 run:
