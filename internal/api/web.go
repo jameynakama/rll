@@ -7,12 +7,12 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jameynakama/reallylonglink/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/urlgen"
 )
 
 //go:embed templates
@@ -50,7 +50,7 @@ func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
 		OriginalUrl:   originalUrl,
-		ReallyLongUrl: generateReallyLongUrl(),
+		ReallyLongUrl: urlgen.Generate(),
 	})
 	if err != nil {
 		log.Printf("webCreateLink: %v", err)
@@ -83,7 +83,7 @@ func (h *Handler) webGetLink(w http.ResponseWriter, r *http.Request) {
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		scheme = proto
 	}
-	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s", scheme, r.Host, url.PathEscape(row.ReallyLongUrl))
+	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s", scheme, r.Host, row.ReallyLongUrl)
 
 	if err := resultTmpl.Execute(w, resultData{
 		OriginalUrl: row.OriginalUrl,

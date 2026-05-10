@@ -7,7 +7,10 @@ default: test
 
 # Run all tests
 test args="":
-    gotestsum {{ args }} ./...
+    gotestsum ./... -- {{ args }}
+
+cover:
+    go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
 
 # Start the dev server with hot reload
 run:

@@ -1,17 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
     <head>
         <style>
             * {
-                font-size: 1.25rem;
+                font-size: 1.1rem;
             }
         </style>
     </head>
     <body>
         <p><a href="/">Home</a></p>
         <p>original: <a href="{{.OriginalUrl}}">{{.OriginalUrl}}</a></p>
-        <p>really long link:<br>
-        <a href="{{.RedirectURL}}">{{.RedirectURL}}</a></p>
+        <p>
+            really long link:<br />
+            <a href="{{.RedirectURL}}">{{.RedirectURL}}</a>
+        </p>
         <textarea rows="10" cols="80">{{.RedirectURL}}</textarea>
     </body>
 </html>

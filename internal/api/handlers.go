@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,19 +12,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jameynakama/reallylonglink/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/urlgen"
 )
 
 const defaultLimit = 20
 const availableChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~/"
 const maxURLLength = 2048
-
-func generateReallyLongUrl() string {
-	b := make([]byte, maxURLLength)
-	for i := range b {
-		b[i] = availableChars[rand.Intn(len(availableChars))]
-	}
-	return string(b)
-}
 
 type createLinkRequest struct {
 	OriginalUrl string `json:"original_url"`
@@ -98,7 +90,7 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
 		OriginalUrl:   req.OriginalUrl,
-		ReallyLongUrl: generateReallyLongUrl(),
+		ReallyLongUrl: urlgen.Generate(),
 	})
 	if err != nil {
 		log.Printf("createLink: %v", err)
