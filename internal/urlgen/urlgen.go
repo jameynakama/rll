@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	minPaths         = 30
-	maxPaths         = 50
+	minPaths         = 50
+	maxPaths         = 70
 	minPathWords     = 2
-	maxPathWords     = 5
-	minQueryArgs     = 5
-	maxQueryArgs     = 10
+	maxPathWords     = 4
+	minQueryArgs     = 12
+	maxQueryArgs     = 20
 	minQueryArgWords = 1
 	maxQueryArgWords = 2
 )
@@ -49,7 +49,7 @@ func randomPathSegment() string {
 }
 
 func randomQueryKey() string {
-	if rand.Intn(3) == 0 {
+	if rand.Intn(2) == 0 {
 		return scammyKeys[rand.Intn(len(scammyKeys))]
 	}
 	var parts []string
