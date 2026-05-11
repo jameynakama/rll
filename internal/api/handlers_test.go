@@ -346,6 +346,20 @@ func TestRedirectToOriginalUrl404(t *testing.T) {
 	}
 }
 
+func TestRedirectToOriginalUrlWithQueryString(t *testing.T) {
+	truncate(t)
+	reallyLongUrl := "seg1/seg2/seg3?utm_source=foo&ref=bar&id=baz"
+	link := createTestLink(t, "https://example.com", reallyLongUrl)
+
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/"+link.ReallyLongUrl, nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusMovedPermanently {
+		t.Errorf("expected 301; got %d", w.Result().StatusCode)
+	}
+}
+
 func TestRedirectToOriginalUrl(t *testing.T) {
 	truncate(t)
 	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
