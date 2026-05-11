@@ -36,15 +36,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to droplet
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /app/rll
-            git pull origin main
-            /usr/local/go/bin/go build -o bin/reallylonglink ./cmd/server
-            set -a && source .env && set +a
-            migrate -path migrations -database "$DATABASE_URL" up
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+            cd /app/rll &&
+            git pull origin main &&
+            /usr/local/go/bin/go build -o bin/reallylonglink ./cmd/server &&
+            set -a && source .env && set +a &&
+            migrate -path migrations -database "$DATABASE_URL" up &&
             sudo systemctl restart rll
+          '
+          rm /tmp/deploy_key
