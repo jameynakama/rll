@@ -3,6 +3,7 @@ package urlgen_test
 import (
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -96,10 +97,10 @@ func TestGenerateIsRandom(t *testing.T) {
 // Should occasionally produce numeric path segments like /48291/
 func TestGenerateOccasionallyHasNumericSegment(t *testing.T) {
 	for range 100 {
-		for _, seg := range pathSegments(t, urlgen.Generate()) {
-			if numericSegment.MatchString(seg) {
-				return
-			}
+		if slices.ContainsFunc(pathSegments(t, urlgen.Generate()), func(seg string) bool {
+			return numericSegment.MatchString(seg)
+		}) {
+			return
 		}
 	}
 	t.Error("expected a numeric segment in 100 calls; got none")
@@ -147,10 +148,10 @@ func TestGenerateOccasionallyHasRandomQueryValue(t *testing.T) {
 	for range 100 {
 		u := parse(t, urlgen.Generate())
 		for _, vals := range u.Query() {
-			for _, v := range vals {
-				if regexp.MustCompile(`[0-9]`).MatchString(v) {
-					return
-				}
+			if slices.ContainsFunc(vals, func(v string) bool {
+				return regexp.MustCompile(`[0-9]`).MatchString(v)
+			}) {
+				return
 			}
 		}
 	}

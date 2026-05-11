@@ -59,6 +59,23 @@ func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
 	return i, err
 }
 
+const getLinkByOriginalUrl = `-- name: GetLinkByOriginalUrl :one
+SELECT id, original_url, really_long_url, create_time, update_time FROM links WHERE original_url = $1
+`
+
+func (q *Queries) GetLinkByOriginalUrl(ctx context.Context, originalUrl string) (Link, error) {
+	row := q.db.QueryRow(ctx, getLinkByOriginalUrl, originalUrl)
+	var i Link
+	err := row.Scan(
+		&i.ID,
+		&i.OriginalUrl,
+		&i.ReallyLongUrl,
+		&i.CreateTime,
+		&i.UpdateTime,
+	)
+	return i, err
+}
+
 const getLinkByReallyLongUrl = `-- name: GetLinkByReallyLongUrl :one
 SELECT id, original_url, really_long_url, create_time, update_time FROM links WHERE really_long_url = $1
 `

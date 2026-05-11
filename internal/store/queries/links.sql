@@ -9,6 +9,9 @@ SELECT * FROM links WHERE id = $1;
 -- name: GetLinkByReallyLongUrl :one
 SELECT * FROM links WHERE really_long_url = $1;
 
+-- name: GetLinkByOriginalUrl :one
+SELECT * FROM links WHERE original_url = $1;
+
 -- name: CreateLink :one
 INSERT INTO links (original_url, really_long_url)
 VALUES ($1, $2)

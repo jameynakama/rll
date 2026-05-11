@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -51,8 +52,11 @@ func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !strings.HasPrefix(originalUrl, "http://") && !strings.HasPrefix(originalUrl, "https://") {
+		originalUrl = "http://" + originalUrl
+	}
 	u, err := url.ParseRequestURI(originalUrl)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || !strings.Contains(u.Host, ".") || u.Host == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		if err := indexTmpl.Execute(w, indexData{Error: "please provide a url", Input: originalUrl}); err != nil {
 			log.Printf("webCreateLink: render: %v", err)
