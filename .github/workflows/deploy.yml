@@ -27,6 +27,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: true
       - run: sudo apt-get install -y wamerican
       - run: go test ./...
 
