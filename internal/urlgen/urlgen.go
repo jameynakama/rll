@@ -70,24 +70,21 @@ func randomQueryValue() string {
 	return strings.Join(parts, "-")
 }
 
-func Generate() string {
-	var path strings.Builder
-
-	numSegments := rand.Intn(maxPaths-minPaths+1) + minPaths // [minPaths, maxPaths] inclusive
-	for i := range numSegments {
-		seg := randomPathSegment()
-		if i == numSegments-1 && rand.Intn(4) == 0 {
-			seg += fileExts[rand.Intn(len(fileExts))]
+func Generate() (string, string) {
+	segs := make([]string, rand.Intn(maxPaths-minPaths+1)+minPaths) // [minPaths, maxPaths] inclusive
+	for i := range segs {
+		segs[i] = randomPathSegment()
+		if i == len(segs)-1 && rand.Intn(4) == 0 {
+			segs[i] += fileExts[rand.Intn(len(fileExts))]
 		}
-		path.WriteString("/" + seg)
 	}
+	path := strings.Join(segs, "/")
 
-	path.WriteString("?")
 	q := make([]string, rand.Intn(maxQueryArgs-minQueryArgs+1)+minQueryArgs) // [minQueryArgs, maxQueryArgs] inclusive
 	for i := range q {
 		q[i] = randomQueryKey() + "=" + randomQueryValue()
 	}
-	path.WriteString(strings.Join(q, "&"))
+	query := "?" + strings.Join(q, "&")
 
-	return strings.TrimPrefix(path.String(), "/")
+	return path, query
 }

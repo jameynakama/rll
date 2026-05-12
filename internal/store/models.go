@@ -9,9 +9,10 @@ import (
 )
 
 type Link struct {
-	ID            int64              `db:"id" json:"id"`
-	OriginalUrl   string             `db:"original_url" json:"original_url"`
-	ReallyLongUrl string             `db:"really_long_url" json:"really_long_url"`
-	CreateTime    pgtype.Timestamptz `db:"create_time" json:"create_time"`
-	UpdateTime    pgtype.Timestamptz `db:"update_time" json:"update_time"`
+	ID              int64              `db:"id" json:"id"`
+	OriginalUrl     string             `db:"original_url" json:"original_url"`
+	CreateTime      pgtype.Timestamptz `db:"create_time" json:"create_time"`
+	UpdateTime      pgtype.Timestamptz `db:"update_time" json:"update_time"`
+	ReallyLongPath  string             `db:"really_long_path" json:"really_long_path"`
+	ReallyLongQuery string             `db:"really_long_query" json:"really_long_query"`
 }

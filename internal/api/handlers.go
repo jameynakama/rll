@@ -23,11 +23,6 @@ type createLinkRequest struct {
 	OriginalUrl string `json:"original_url"`
 }
 
-type updateLinkRequest struct {
-	OriginalUrl   string `json:"original_url"`
-	ReallyLongUrl string `json:"really_long_url"`
-}
-
 func (h *Handler) listLinks(w http.ResponseWriter, r *http.Request) {
 	limit := int32(defaultLimit)
 	if l := r.URL.Query().Get("limit"); l != "" {
@@ -88,9 +83,11 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	path, query := urlgen.Generate()
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
-		OriginalUrl:   req.OriginalUrl,
-		ReallyLongUrl: urlgen.Generate(),
+		OriginalUrl:     req.OriginalUrl,
+		ReallyLongPath:  path,
+		ReallyLongQuery: query,
 	})
 	if err != nil {
 		log.Printf("createLink: %v", err)
@@ -101,57 +98,6 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, row)
 }
 
-func (h *Handler) updateLink(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "id must be a number")
-		return
-	}
-
-	var req updateLinkRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.OriginalUrl == "" {
-		writeError(w, http.StatusBadRequest, "original url is required")
-		return
-	}
-
-	row, err := h.queries.UpdateLink(r.Context(), store.UpdateLinkParams{
-		ID:            id,
-		OriginalUrl:   req.OriginalUrl,
-		ReallyLongUrl: req.ReallyLongUrl,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "not found")
-			return
-		}
-		log.Printf("updateLink: %v", err)
-		writeError(w, http.StatusInternalServerError, "server error")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, row)
-}
-
-func (h *Handler) deleteLink(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "id must be a number")
-		return
-	}
-
-	if err := h.queries.DeleteLink(r.Context(), id); err != nil {
-		log.Printf("deleteLink: %v", err)
-		writeError(w, http.StatusInternalServerError, "server error")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func (h *Handler) redirectToOriginalUrl(w http.ResponseWriter, r *http.Request) {
 	rawLink, _ := strings.CutPrefix(r.RequestURI, "/api/v1/rll/")
 	reallyLongLink, err := url.PathUnescape(rawLink)
@@ -160,7 +106,9 @@ func (h *Handler) redirectToOriginalUrl(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid url")
 		return
 	}
-	row, err := h.queries.GetLinkByReallyLongUrl(r.Context(), reallyLongLink)
+
+	path, _, _ := strings.Cut(reallyLongLink, "?")
+	row, err := h.queries.GetLinkByReallyLongPath(r.Context(), path)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "not found")

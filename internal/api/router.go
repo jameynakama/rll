@@ -39,8 +39,6 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		r.Get("/rll/*", h.redirectToOriginalUrl)
 		r.Post("/links", h.createLink)
 		r.Get("/links/{id}", h.getLink)
-		r.Put("/links/{id}", h.updateLink)
-		r.Delete("/links/{id}", h.deleteLink)
 	})
 
 	return r

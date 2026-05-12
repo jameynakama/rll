@@ -37,7 +37,8 @@ func pathSegments(t *testing.T, result string) []string {
 
 // Should have at least two path segments
 func TestGenerateHasMultiplePathSegments(t *testing.T) {
-	parts := pathSegments(t, urlgen.Generate())
+	path, _ := urlgen.Generate()
+	parts := pathSegments(t, path)
 	if len(parts) < 2 {
 		t.Errorf("expected at least 2 path segments; got %d", len(parts))
 	}
@@ -45,7 +46,8 @@ func TestGenerateHasMultiplePathSegments(t *testing.T) {
 
 // Should have path segments containing only safe URL characters
 func TestGeneratePathSegmentsAreURLSafe(t *testing.T) {
-	for _, seg := range pathSegments(t, urlgen.Generate()) {
+	path, _ := urlgen.Generate()
+	for _, seg := range pathSegments(t, path) {
 		base := validExtension.ReplaceAllString(seg, "")
 		if !validSegmentBase.MatchString(base) {
 			t.Errorf("segment %q contains unsafe characters", seg)
@@ -55,7 +57,8 @@ func TestGeneratePathSegmentsAreURLSafe(t *testing.T) {
 
 // Should have at least two query params
 func TestGenerateHasMultipleQueryParams(t *testing.T) {
-	u := parse(t, urlgen.Generate())
+	path, query := urlgen.Generate()
+	u := parse(t, path+query)
 	if len(u.Query()) < 2 {
 		t.Errorf("expected at least 2 query params; got %d", len(u.Query()))
 	}
@@ -63,7 +66,8 @@ func TestGenerateHasMultipleQueryParams(t *testing.T) {
 
 // Should have query keys that are lowercase letters and underscores only
 func TestGenerateQueryKeysAreLowercaseWithUnderscores(t *testing.T) {
-	u := parse(t, urlgen.Generate())
+	path, query := urlgen.Generate()
+	u := parse(t, path+query)
 	for k := range u.Query() {
 		if !queryKeyPattern.MatchString(k) {
 			t.Errorf("query key %q should be lowercase letters/underscores only", k)
@@ -73,7 +77,8 @@ func TestGenerateQueryKeysAreLowercaseWithUnderscores(t *testing.T) {
 
 // Should have query values that are lowercase alphanumeric or hyphenated only
 func TestGenerateQueryValuesAreLowercaseAlphanumeric(t *testing.T) {
-	u := parse(t, urlgen.Generate())
+	path, query := urlgen.Generate()
+	u := parse(t, path+query)
 	for _, vals := range u.Query() {
 		for _, v := range vals {
 			if !queryValueRe.MatchString(v) {
@@ -87,7 +92,8 @@ func TestGenerateQueryValuesAreLowercaseAlphanumeric(t *testing.T) {
 func TestGenerateIsRandom(t *testing.T) {
 	seen := make(map[string]bool)
 	for range 10 {
-		seen[urlgen.Generate()] = true
+		path, _ := urlgen.Generate()
+		seen[path] = true
 	}
 	if len(seen) < 5 {
 		t.Errorf("Generate() not random enough: only %d unique results in 10 calls", len(seen))
@@ -97,7 +103,8 @@ func TestGenerateIsRandom(t *testing.T) {
 // Should occasionally produce numeric path segments like /48291/
 func TestGenerateOccasionallyHasNumericSegment(t *testing.T) {
 	for range 100 {
-		if slices.ContainsFunc(pathSegments(t, urlgen.Generate()), func(seg string) bool {
+		path, _ := urlgen.Generate()
+		if slices.ContainsFunc(pathSegments(t, path), func(seg string) bool {
 			return numericSegment.MatchString(seg)
 		}) {
 			return
@@ -109,7 +116,8 @@ func TestGenerateOccasionallyHasNumericSegment(t *testing.T) {
 // Should occasionally produce alphanumeric ID segments like /a3f92b1c/
 func TestGenerateOccasionallyHasAlphanumericIDSegment(t *testing.T) {
 	for range 100 {
-		for _, seg := range pathSegments(t, urlgen.Generate()) {
+		path, _ := urlgen.Generate()
+		for _, seg := range pathSegments(t, path) {
 			if alphanumericID.MatchString(seg) && !hyphenatedWords.MatchString(seg) && !numericSegment.MatchString(seg) {
 				return
 			}
@@ -121,8 +129,7 @@ func TestGenerateOccasionallyHasAlphanumericIDSegment(t *testing.T) {
 // Should occasionally produce path segments ending in .php, .aspx, or .html
 func TestGenerateOccasionallyHasFileExtension(t *testing.T) {
 	for range 100 {
-		result := urlgen.Generate()
-		path := strings.SplitN(result, "?", 2)[0]
+		path, _ := urlgen.Generate()
 		if validExtension.MatchString(path) {
 			return
 		}
@@ -133,7 +140,8 @@ func TestGenerateOccasionallyHasFileExtension(t *testing.T) {
 // Should occasionally produce scammy query keys like utm_source, ref, token
 func TestGenerateOccasionallyHasScammyQueryKey(t *testing.T) {
 	for range 100 {
-		u := parse(t, urlgen.Generate())
+		path, query := urlgen.Generate()
+		u := parse(t, path+query)
 		for k := range u.Query() {
 			if strings.Contains(k, "_") {
 				return
@@ -146,7 +154,8 @@ func TestGenerateOccasionallyHasScammyQueryKey(t *testing.T) {
 // Should occasionally produce random alphanumeric query values containing digits
 func TestGenerateOccasionallyHasRandomQueryValue(t *testing.T) {
 	for range 100 {
-		u := parse(t, urlgen.Generate())
+		path, query := urlgen.Generate()
+		u := parse(t, path+query)
 		for _, vals := range u.Query() {
 			if slices.ContainsFunc(vals, func(v string) bool {
 				return regexp.MustCompile(`[0-9]`).MatchString(v)

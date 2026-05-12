@@ -10,12 +10,10 @@ import (
 
 type Querier interface {
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
-	DeleteLink(ctx context.Context, id int64) error
 	GetLink(ctx context.Context, id int64) (Link, error)
 	GetLinkByOriginalUrl(ctx context.Context, originalUrl string) (Link, error)
-	GetLinkByReallyLongUrl(ctx context.Context, reallyLongUrl string) (Link, error)
+	GetLinkByReallyLongPath(ctx context.Context, reallyLongPath string) (Link, error)
 	ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error)
-	UpdateLink(ctx context.Context, arg UpdateLinkParams) (Link, error)
 }
 
 var _ Querier = (*Queries)(nil)

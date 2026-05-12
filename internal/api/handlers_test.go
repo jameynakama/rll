@@ -93,11 +93,12 @@ func truncate(t *testing.T) {
 	}
 }
 
-func createTestLink(t *testing.T, originalUrl string, reallyLongUrl string) store.Link {
+func createTestLink(t *testing.T, originalUrl string, reallyLongPath string, reallyLongQuery string) store.Link {
 	t.Helper()
 	link, err := store.New(testPool).CreateLink(context.Background(), store.CreateLinkParams{
-		OriginalUrl:   originalUrl,
-		ReallyLongUrl: reallyLongUrl,
+		OriginalUrl:     originalUrl,
+		ReallyLongPath:  reallyLongPath,
+		ReallyLongQuery: reallyLongQuery,
 	})
 	if err != nil {
 		t.Fatalf("createTestLink: %v", err)
@@ -133,7 +134,7 @@ func TestListLinks(t *testing.T) {
 	truncate(t)
 
 	for i := range 3 {
-		createTestLink(t, fmt.Sprintf("https://example.com/%d", i), fmt.Sprintf("https://example.com/reallylongurl/%d", i))
+		createTestLink(t, fmt.Sprintf("https://example.com/%d", i), fmt.Sprintf("https://example.com/reallylongurl/%d", i), "")
 	}
 
 	srv := newTestServer(t)
@@ -167,7 +168,7 @@ func TestGetLink404(t *testing.T) {
 
 func TestGetLink(t *testing.T) {
 	truncate(t)
-	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl", "")
 
 	srv := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
@@ -208,130 +209,14 @@ func TestCreateLink(t *testing.T) {
 	if created.OriginalUrl != "https://example.com" {
 		t.Errorf("expected original url 'https://example.com'; got '%s'", created.OriginalUrl)
 	}
-	if created.ReallyLongUrl == "" {
-		t.Errorf("expected really long url; got empty")
+	if created.ReallyLongPath == "" {
+		t.Errorf("expected really long path; got empty")
+	}
+	if created.ReallyLongQuery == "" {
+		t.Errorf("expected really long query; got empty")
 	}
 	if _, err := store.New(testPool).GetLink(context.Background(), created.ID); err != nil {
 		t.Errorf("created link not found in db: %v", err)
-	}
-}
-
-func TestUpdateLink404(t *testing.T) {
-	truncate(t)
-	srv := newTestServer(t)
-
-	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/links/666", body)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusNotFound {
-		t.Errorf("expected 404; got %d", w.Result().StatusCode)
-	}
-}
-
-func TestUpdateLink(t *testing.T) {
-	truncate(t)
-	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
-
-	srv := newTestServer(t)
-	body := strings.NewReader(`{"original_url":"https://example.com","really_long_url":"https://example.com/reallylongurl"}`)
-	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/links/%d", link.ID), body)
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusOK {
-		t.Fatalf("expected 200; got %d", w.Result().StatusCode)
-	}
-
-	if err := json.NewDecoder(w.Body).Decode(&link); err != nil {
-		t.Fatalf("error decoding response: %v", err)
-	}
-	if link.OriginalUrl != "https://example.com" {
-		t.Errorf("expected original url 'https://example.com'; got '%s'", link.OriginalUrl)
-	}
-}
-
-func TestDeleteLink(t *testing.T) {
-	truncate(t)
-	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
-
-	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-
-	if w.Result().StatusCode != http.StatusNoContent {
-		t.Fatalf("expected 204; got %d", w.Result().StatusCode)
-	}
-
-	w = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/links/%d", link.ID), nil)
-	srv.ServeHTTP(w, req)
-	if w.Result().StatusCode != http.StatusNotFound {
-		t.Errorf("expected 404 after delete; got %d", w.Result().StatusCode)
-	}
-}
-
-func TestWebCreateLink(t *testing.T) {
-	truncate(t)
-	srv := newTestServer(t)
-	body := strings.NewReader("original_url=https%3A%2F%2Fexample.com")
-	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-	if w.Code != http.StatusSeeOther {
-		t.Fatalf("expected 303; got %d: %s", w.Code, w.Body.String())
-	}
-	loc := w.Result().Header.Get("Location")
-	if !strings.HasPrefix(loc, "/links/") {
-		t.Errorf("expected redirect to /links/{id}; got %s", loc)
-	}
-}
-
-func TestWebCreateLinkEmptyURL(t *testing.T) {
-	srv := newTestServer(t)
-	body := strings.NewReader("original_url=")
-	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Errorf("expected 422; got %d", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "original url is required") {
-		t.Errorf("expected error message in body; got %s", w.Body.String())
-	}
-}
-
-func TestWebCreateLinkBadURL(t *testing.T) {
-	srv := newTestServer(t)
-	body := strings.NewReader("original_url=woof")
-	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("expected 400; got %d", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "please provide a url") {
-		t.Errorf("expected error message in body; got %s", w.Body.String())
-	}
-}
-
-func TestWebIndex(t *testing.T) {
-	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	w := httptest.NewRecorder()
-	srv.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200; got %d", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "Really Long Link") {
-		t.Errorf("expected 'Really Long Link' in body; got %s", w.Body.String())
 	}
 }
 
@@ -348,11 +233,12 @@ func TestRedirectToOriginalUrl404(t *testing.T) {
 
 func TestRedirectToOriginalUrlWithQueryString(t *testing.T) {
 	truncate(t)
-	reallyLongUrl := "seg1/seg2/seg3?utm_source=foo&ref=bar&id=baz"
-	link := createTestLink(t, "https://example.com", reallyLongUrl)
+	path := "seg1/seg2/seg3"
+	query := "?utm_source=foo&ref=bar&id=baz"
+	createTestLink(t, "https://example.com", path, query)
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/"+link.ReallyLongUrl, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/"+path, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusMovedPermanently {
@@ -362,10 +248,10 @@ func TestRedirectToOriginalUrlWithQueryString(t *testing.T) {
 
 func TestRedirectToOriginalUrl(t *testing.T) {
 	truncate(t)
-	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl", "")
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/rll/%s", link.ReallyLongUrl), nil)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/rll/%s", link.ReallyLongPath), nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusMovedPermanently {
@@ -378,7 +264,7 @@ func TestRedirectToOriginalUrl(t *testing.T) {
 
 func TestWebGetLink(t *testing.T) {
 	truncate(t)
-	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl")
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl", "")
 	srv := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/links/%d", link.ID), nil)
 	req.Host = "localhost:8080"

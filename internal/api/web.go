@@ -64,9 +64,11 @@ func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	path, query := urlgen.Generate()
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
-		OriginalUrl:   originalUrl,
-		ReallyLongUrl: urlgen.Generate(),
+		OriginalUrl:     originalUrl,
+		ReallyLongPath:  path,
+		ReallyLongQuery: query,
 	})
 	if err != nil {
 		log.Printf("webCreateLink: %v", err)
@@ -99,7 +101,7 @@ func (h *Handler) webGetLink(w http.ResponseWriter, r *http.Request) {
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		scheme = proto
 	}
-	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s", scheme, r.Host, row.ReallyLongUrl)
+	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s%s", scheme, r.Host, row.ReallyLongPath, row.ReallyLongQuery)
 
 	if err := resultTmpl.Execute(w, resultData{
 		OriginalUrl: row.OriginalUrl,
