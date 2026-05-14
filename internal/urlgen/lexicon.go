@@ -23,10 +23,6 @@ var nouns []string
 var wordsByPOS map[string][]string
 
 func init() {
-	buildPOSLists()
-}
-
-func buildPOSLists() {
 	words := strings.SplitSeq(mobyData, "\n")
 	for line := range words {
 		dat := strings.Split(line, "\\")
