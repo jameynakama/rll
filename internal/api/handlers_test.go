@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -99,6 +100,7 @@ func createTestLink(t *testing.T, originalUrl string, reallyLongPath string, rea
 		OriginalUrl:     originalUrl,
 		ReallyLongPath:  reallyLongPath,
 		ReallyLongQuery: reallyLongQuery,
+		PathHash:        fmt.Sprintf("%x", md5.Sum([]byte(reallyLongPath))),
 	})
 	if err != nil {
 		t.Fatalf("createTestLink: %v", err)
@@ -223,7 +225,7 @@ func TestCreateLink(t *testing.T) {
 func TestRedirectToOriginalUrl404(t *testing.T) {
 	truncate(t)
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/doesnotexist", nil)
+	req := httptest.NewRequest(http.MethodGet, "/rll/doesnotexist", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusNotFound {
@@ -238,15 +240,34 @@ func TestRedirectToOriginalUrlWithQueryString(t *testing.T) {
 	createTestLink(t, "https://example.com", path, query)
 
 	srv := newTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rll/"+path, nil)
+	req := httptest.NewRequest(http.MethodGet, "/rll/"+path, nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
 	if w.Result().StatusCode != http.StatusMovedPermanently {
 		t.Errorf("expected 301; got %d", w.Result().StatusCode)
 	}
+	if w.Result().Header.Get("Location") != "https://example.com" {
+		t.Errorf("expected location https://example.com; got %s", w.Result().Header.Get("Location"))
+	}
 }
 
 func TestRedirectToOriginalUrl(t *testing.T) {
+	truncate(t)
+	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl", "")
+
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/rll/%s", link.ReallyLongPath), nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusMovedPermanently {
+		t.Errorf("expected 301; got %d", w.Result().StatusCode)
+	}
+	if w.Result().Header.Get("Location") != link.OriginalUrl {
+		t.Errorf("expected location %s; got %s", link.OriginalUrl, w.Result().Header.Get("Location"))
+	}
+}
+
+func TestRedirectToOriginalUrlLegacy(t *testing.T) {
 	truncate(t)
 	link := createTestLink(t, "https://example.com", "https://example.com/reallylongurl", "")
 

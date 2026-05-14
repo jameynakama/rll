@@ -20,6 +20,8 @@ var (
 	queryValueRe     = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 )
 
+var re = regexp.MustCompile(`[0-9]`)
+
 func parse(t *testing.T, result string) *url.URL {
 	t.Helper()
 	u, err := url.Parse("https://dogs.com/" + result)
@@ -158,7 +160,7 @@ func TestGenerateOccasionallyHasRandomQueryValue(t *testing.T) {
 		u := parse(t, path+query)
 		for _, vals := range u.Query() {
 			if slices.ContainsFunc(vals, func(v string) bool {
-				return regexp.MustCompile(`[0-9]`).MatchString(v)
+				return re.MatchString(v)
 			}) {
 				return
 			}

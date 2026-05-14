@@ -1,8 +1,10 @@
 package api
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -16,8 +18,6 @@ import (
 )
 
 const defaultLimit = 20
-const availableChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~/"
-const maxURLLength = 2048
 
 type createLinkRequest struct {
 	OriginalUrl string `json:"original_url"`
@@ -88,6 +88,7 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 		OriginalUrl:     req.OriginalUrl,
 		ReallyLongPath:  path,
 		ReallyLongQuery: query,
+		PathHash:        fmt.Sprintf("%x", md5.Sum([]byte(path))),
 	})
 	if err != nil {
 		log.Printf("createLink: %v", err)
@@ -99,7 +100,7 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) redirectToOriginalUrl(w http.ResponseWriter, r *http.Request) {
-	rawLink, _ := strings.CutPrefix(r.RequestURI, "/api/v1/rll/")
+	rawLink := chi.URLParam(r, "*")
 	reallyLongLink, err := url.PathUnescape(rawLink)
 	if err != nil {
 		log.Printf("redirectToOriginalUrl: unescape: %v", err)

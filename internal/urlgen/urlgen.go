@@ -7,10 +7,8 @@ import (
 )
 
 const (
-	minPaths         = 50
-	maxPaths         = 70
-	minPathWords     = 2
-	maxPathWords     = 4
+	minPaths         = 100
+	maxPaths         = 120
 	minQueryArgs     = 12
 	maxQueryArgs     = 20
 	minQueryArgWords = 1
@@ -24,8 +22,9 @@ var scammyKeys = []string{
 	"token", "id", "user_id", "tracking", "clickid", "fbclid", "gclid",
 }
 
+const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+
 func randomAlphanumericID() string {
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, rand.Intn(7)+6) // 6-12 chars
 	for i := range b {
 		b[i] = chars[rand.Intn(len(chars))]
@@ -38,13 +37,13 @@ func randomPathSegment() string {
 	case 0:
 		return strconv.Itoa(rand.Intn(9000000) + 100000) // 6-7 digit number
 	case 1:
+		fallthrough
+	case 2:
 		return randomAlphanumericID()
+	case 3:
+		fallthrough
 	default:
-		parts := make([]string, rand.Intn(maxPathWords-minPathWords+1)+minPathWords)
-		for i := range parts {
-			parts[i] = randomWord()
-		}
-		return strings.Join(parts, "-")
+		return randomPhrase(rand.Intn(3) + 1)
 	}
 }
 
@@ -52,22 +51,14 @@ func randomQueryKey() string {
 	if rand.Intn(2) == 0 {
 		return scammyKeys[rand.Intn(len(scammyKeys))]
 	}
-	var parts []string
-	for range rand.Intn(maxQueryArgWords-minQueryArgWords+1) + minQueryArgWords {
-		parts = append(parts, randomWord())
-	}
-	return strings.Join(parts, "-")
+	return randomPhrase(rand.Intn(maxQueryArgWords-minQueryArgWords+1) + minQueryArgWords)
 }
 
 func randomQueryValue() string {
-	if rand.Intn(3) == 0 {
+	if rand.Intn(2) == 0 {
 		return randomAlphanumericID()
 	}
-	var parts []string
-	for range rand.Intn(maxQueryArgWords-minQueryArgWords+1) + minQueryArgWords {
-		parts = append(parts, randomWord())
-	}
-	return strings.Join(parts, "-")
+	return randomPhrase(rand.Intn(maxQueryArgWords-minQueryArgWords+1) + minQueryArgWords)
 }
 
 func Generate() (string, string) {

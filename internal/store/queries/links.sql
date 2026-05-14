@@ -13,6 +13,6 @@ SELECT * FROM links WHERE really_long_path = $1;
 SELECT * FROM links WHERE original_url = $1;
 
 -- name: CreateLink :one
-INSERT INTO links (original_url, really_long_path, really_long_query)
-VALUES ($1, $2, $3)
+INSERT INTO links (original_url, really_long_path, really_long_query, path_hash)
+VALUES ($1, $2, $3, $4)
 RETURNING *;

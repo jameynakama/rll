@@ -10,19 +10,25 @@ import (
 )
 
 const createLink = `-- name: CreateLink :one
-INSERT INTO links (original_url, really_long_path, really_long_query)
-VALUES ($1, $2, $3)
-RETURNING id, original_url, create_time, update_time, really_long_path, really_long_query
+INSERT INTO links (original_url, really_long_path, really_long_query, path_hash)
+VALUES ($1, $2, $3, $4)
+RETURNING id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash
 `
 
 type CreateLinkParams struct {
 	OriginalUrl     string `db:"original_url" json:"original_url"`
 	ReallyLongPath  string `db:"really_long_path" json:"really_long_path"`
 	ReallyLongQuery string `db:"really_long_query" json:"really_long_query"`
+	PathHash        string `db:"path_hash" json:"path_hash"`
 }
 
 func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error) {
-	row := q.db.QueryRow(ctx, createLink, arg.OriginalUrl, arg.ReallyLongPath, arg.ReallyLongQuery)
+	row := q.db.QueryRow(ctx, createLink,
+		arg.OriginalUrl,
+		arg.ReallyLongPath,
+		arg.ReallyLongQuery,
+		arg.PathHash,
+	)
 	var i Link
 	err := row.Scan(
 		&i.ID,
@@ -31,12 +37,13 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, e
 		&i.UpdateTime,
 		&i.ReallyLongPath,
 		&i.ReallyLongQuery,
+		&i.PathHash,
 	)
 	return i, err
 }
 
 const getLink = `-- name: GetLink :one
-SELECT id, original_url, create_time, update_time, really_long_path, really_long_query FROM links WHERE id = $1
+SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links WHERE id = $1
 `
 
 func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
@@ -49,12 +56,13 @@ func (q *Queries) GetLink(ctx context.Context, id int64) (Link, error) {
 		&i.UpdateTime,
 		&i.ReallyLongPath,
 		&i.ReallyLongQuery,
+		&i.PathHash,
 	)
 	return i, err
 }
 
 const getLinkByOriginalUrl = `-- name: GetLinkByOriginalUrl :one
-SELECT id, original_url, create_time, update_time, really_long_path, really_long_query FROM links WHERE original_url = $1
+SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links WHERE original_url = $1
 `
 
 func (q *Queries) GetLinkByOriginalUrl(ctx context.Context, originalUrl string) (Link, error) {
@@ -67,12 +75,13 @@ func (q *Queries) GetLinkByOriginalUrl(ctx context.Context, originalUrl string) 
 		&i.UpdateTime,
 		&i.ReallyLongPath,
 		&i.ReallyLongQuery,
+		&i.PathHash,
 	)
 	return i, err
 }
 
 const getLinkByReallyLongPath = `-- name: GetLinkByReallyLongPath :one
-SELECT id, original_url, create_time, update_time, really_long_path, really_long_query FROM links WHERE really_long_path = $1
+SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links WHERE really_long_path = $1
 `
 
 func (q *Queries) GetLinkByReallyLongPath(ctx context.Context, reallyLongPath string) (Link, error) {
@@ -85,12 +94,13 @@ func (q *Queries) GetLinkByReallyLongPath(ctx context.Context, reallyLongPath st
 		&i.UpdateTime,
 		&i.ReallyLongPath,
 		&i.ReallyLongQuery,
+		&i.PathHash,
 	)
 	return i, err
 }
 
 const listLinks = `-- name: ListLinks :many
-SELECT id, original_url, create_time, update_time, really_long_path, really_long_query FROM links
+SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links
 ORDER BY create_time DESC
 LIMIT $1 OFFSET $2
 `
@@ -116,6 +126,7 @@ func (q *Queries) ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, e
 			&i.UpdateTime,
 			&i.ReallyLongPath,
 			&i.ReallyLongQuery,
+			&i.PathHash,
 		); err != nil {
 			return nil, err
 		}

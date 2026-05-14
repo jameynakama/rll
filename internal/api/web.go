@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/md5"
 	"embed"
 	"errors"
 	"fmt"
@@ -69,6 +70,7 @@ func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 		OriginalUrl:     originalUrl,
 		ReallyLongPath:  path,
 		ReallyLongQuery: query,
+		PathHash:        fmt.Sprintf("%x", md5.Sum([]byte(path))),
 	})
 	if err != nil {
 		log.Printf("webCreateLink: %v", err)
@@ -101,7 +103,7 @@ func (h *Handler) webGetLink(w http.ResponseWriter, r *http.Request) {
 	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
 		scheme = proto
 	}
-	redirectURL := fmt.Sprintf("%s://%s/api/v1/rll/%s%s", scheme, r.Host, row.ReallyLongPath, row.ReallyLongQuery)
+	redirectURL := fmt.Sprintf("%s://%s/rll/%s%s", scheme, r.Host, row.ReallyLongPath, row.ReallyLongQuery)
 
 	if err := resultTmpl.Execute(w, resultData{
 		OriginalUrl: row.OriginalUrl,

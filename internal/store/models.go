@@ -15,4 +15,5 @@ type Link struct {
 	UpdateTime      pgtype.Timestamptz `db:"update_time" json:"update_time"`
 	ReallyLongPath  string             `db:"really_long_path" json:"really_long_path"`
 	ReallyLongQuery string             `db:"really_long_query" json:"really_long_query"`
+	PathHash        string             `db:"path_hash" json:"path_hash"`
 }
