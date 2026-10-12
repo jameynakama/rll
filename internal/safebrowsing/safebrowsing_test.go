@@ -3,6 +3,7 @@ package safebrowsing_test
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -101,6 +102,16 @@ func TestIsFlaggedErrors(t *testing.T) {
 				t.Error("expected error; got nil")
 			}
 		})
+	}
+}
+
+func TestIsFlaggedRateLimited(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	})
+
+	if _, err := c.IsFlagged(context.Background(), "https://example.com"); !errors.Is(err, safebrowsing.ErrRateLimited) {
+		t.Errorf("expected ErrRateLimited; got %v", err)
 	}
 }
 

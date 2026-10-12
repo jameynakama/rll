@@ -3,6 +3,7 @@ package sweep_test
 import (
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -62,12 +63,22 @@ func linkExists(t *testing.T, id int64) bool {
 	return n == 1
 }
 
-// newSafeBrowsing flags any url containing "evil" and errors on any containing "broken".
-func newSafeBrowsing(t *testing.T) *safebrowsing.Client {
+const day = 24 * time.Hour
+
+// fakeSafeBrowsing flags any url containing "evil", errors on "broken", and
+// rate-limits on "quota". It records every url it's asked about.
+type fakeSafeBrowsing struct {
+	checked []string
+}
+
+func (f *fakeSafeBrowsing) client(t *testing.T) *safebrowsing.Client {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := r.URL.Query().Get("urls")
+		f.checked = append(f.checked, u)
 		switch {
+		case strings.Contains(u, "quota"):
+			w.WriteHeader(http.StatusTooManyRequests)
 		case strings.Contains(u, "broken"):
 			w.WriteHeader(http.StatusInternalServerError)
 		case strings.Contains(u, "evil"):
@@ -79,33 +90,72 @@ func newSafeBrowsing(t *testing.T) *safebrowsing.Client {
 	return safebrowsing.New(srv.URL, "test-key")
 }
 
-// Should delete recent flagged links and leave clean, old, and unchecked ones
+// Should check only links at the check ages and delete every link to a flagged url
 func TestRun(t *testing.T) {
 	truncate(t)
-	recentEvil := createLink(t, "https://evil.example/a", 24*time.Hour)
-	recentClean := createLink(t, "https://example.com", 24*time.Hour)
-	recentBroken := createLink(t, "https://broken.example", 24*time.Hour)
-	oldEvil := createLink(t, "https://evil.example/b", 60*24*time.Hour)
+	evilAt1 := createLink(t, "https://evil.example/1", 1*day)
+	evilAt3 := createLink(t, "https://evil.example/3", 3*day)
+	evilAt7 := createLink(t, "https://evil.example/7", 7*day)
+	evilAt7Old := createLink(t, "https://evil.example/7", 40*day)
+	evilAt2 := createLink(t, "https://evil.example/2", 2*day)
+	cleanAt1 := createLink(t, "https://example.com", 1*day)
+	brokenAt1 := createLink(t, "https://broken.example", 1*day)
 
-	deleted, err := sweep.Run(context.Background(), store.New(testPool), newSafeBrowsing(t), time.Now().Add(-30*24*time.Hour))
+	sb := &fakeSafeBrowsing{}
+	deleted, err := sweep.Run(context.Background(), store.New(testPool), sb.client(t), time.Now(), 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if deleted != 1 {
-		t.Errorf("expected 1 deleted; got %d", deleted)
+	if deleted != 4 {
+		t.Errorf("expected 4 deleted; got %d", deleted)
 	}
-	if linkExists(t, recentEvil.ID) {
-		t.Error("expected recent flagged link to be deleted")
+	for _, l := range []store.Link{evilAt1, evilAt3, evilAt7, evilAt7Old} {
+		if linkExists(t, l.ID) {
+			t.Errorf("expected link %d (%s) to be deleted", l.ID, l.OriginalUrl)
+		}
 	}
-	if !linkExists(t, recentClean.ID) {
-		t.Error("expected recent clean link to be kept")
+	for _, l := range []store.Link{evilAt2, cleanAt1, brokenAt1} {
+		if !linkExists(t, l.ID) {
+			t.Errorf("expected link %d (%s) to be kept", l.ID, l.OriginalUrl)
+		}
 	}
-	if !linkExists(t, recentBroken.ID) {
-		t.Error("expected link whose check errored to be kept")
+	if len(sb.checked) != 5 {
+		t.Errorf("expected 5 urls checked (each once, none outside the check ages); got %v", sb.checked)
 	}
-	if !linkExists(t, oldEvil.ID) {
-		t.Error("expected link older than the window to be left alone")
+}
+
+// Should stop at the first rate limit instead of burning through the rest
+func TestRunStopsWhenRateLimited(t *testing.T) {
+	truncate(t)
+	createLink(t, "https://a-quota.example", 1*day)
+	createLink(t, "https://b-evil.example", 1*day)
+
+	sb := &fakeSafeBrowsing{}
+	_, err := sweep.Run(context.Background(), store.New(testPool), sb.client(t), time.Now(), 0)
+
+	if !errors.Is(err, safebrowsing.ErrRateLimited) {
+		t.Errorf("expected ErrRateLimited; got %v", err)
+	}
+	if len(sb.checked) != 1 {
+		t.Errorf("expected to stop after 1 check; got %v", sb.checked)
+	}
+}
+
+// Should wait the pace between checks
+func TestRunPaces(t *testing.T) {
+	truncate(t)
+	createLink(t, "https://a.example", 1*day)
+	createLink(t, "https://b.example", 1*day)
+	createLink(t, "https://c.example", 1*day)
+
+	sb := &fakeSafeBrowsing{}
+	start := time.Now()
+	if _, err := sweep.Run(context.Background(), store.New(testPool), sb.client(t), time.Now(), 50*time.Millisecond); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 100*time.Millisecond {
+		t.Errorf("expected at least 2 paces (100ms) for 3 checks; took %v", elapsed)
 	}
 }
 
@@ -113,7 +163,8 @@ func TestRunDBError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if _, err := sweep.Run(ctx, store.New(testPool), newSafeBrowsing(t), time.Now()); err == nil {
+	sb := &fakeSafeBrowsing{}
+	if _, err := sweep.Run(ctx, store.New(testPool), sb.client(t), time.Now(), 0); err == nil {
 		t.Error("expected error; got nil")
 	}
 }

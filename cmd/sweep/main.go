@@ -1,5 +1,6 @@
 // Command sweep deletes recent links that Safe Browsing has since flagged.
-// Run it daily; see deploy/rll-sweep.timer.
+// Run it once a day; see deploy/rll-sweep.timer. It checks links by calendar
+// day, so running it more or less often skips or repeats days.
 package main
 
 import (
@@ -14,9 +15,9 @@ import (
 	"github.com/jameynakama/reallylonglink/internal/sweep"
 )
 
-// Phishing domains tend to get listed within days; older links have had
-// their chance.
-const window = 30 * 24 * time.Hour
+// Keeps the sweep well under any per-minute limit and leaves headroom for
+// create-time checks running at the same time.
+const pace = time.Second
 
 func required(key string) string {
 	v := os.Getenv(key)
@@ -39,7 +40,7 @@ func main() {
 	defer db.Close()
 
 	sb := safebrowsing.New(safebrowsing.DefaultBaseURL, apiKey)
-	deleted, err := sweep.Run(ctx, store.New(db), sb, time.Now().Add(-window))
+	deleted, err := sweep.Run(ctx, store.New(db), sb, time.Now(), pace)
 	if err != nil {
 		log.Fatalf("sweep: %v", err)
 	}

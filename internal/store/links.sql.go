@@ -56,13 +56,16 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, e
 	return i, err
 }
 
-const deleteLink = `-- name: DeleteLink :exec
-DELETE FROM links WHERE id = $1
+const deleteLinksByOriginalUrl = `-- name: DeleteLinksByOriginalUrl :execrows
+DELETE FROM links WHERE original_url = $1
 `
 
-func (q *Queries) DeleteLink(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteLink, id)
-	return err
+func (q *Queries) DeleteLinksByOriginalUrl(ctx context.Context, originalUrl string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteLinksByOriginalUrl, originalUrl)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteLinksForDomain = `-- name: DeleteLinksForDomain :execrows
@@ -186,31 +189,25 @@ func (q *Queries) ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, e
 	return items, nil
 }
 
-const listLinksSince = `-- name: ListLinksSince :many
-SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links WHERE create_time >= $1 ORDER BY id
+const listURLsCreatedOn = `-- name: ListURLsCreatedOn :many
+SELECT DISTINCT original_url FROM links
+WHERE (create_time AT TIME ZONE 'UTC')::date = ANY($1::date[])
+ORDER BY original_url
 `
 
-func (q *Queries) ListLinksSince(ctx context.Context, createTime pgtype.Timestamptz) ([]Link, error) {
-	rows, err := q.db.Query(ctx, listLinksSince, createTime)
+func (q *Queries) ListURLsCreatedOn(ctx context.Context, days []pgtype.Date) ([]string, error) {
+	rows, err := q.db.Query(ctx, listURLsCreatedOn, days)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Link
+	var items []string
 	for rows.Next() {
-		var i Link
-		if err := rows.Scan(
-			&i.ID,
-			&i.OriginalUrl,
-			&i.CreateTime,
-			&i.UpdateTime,
-			&i.ReallyLongPath,
-			&i.ReallyLongQuery,
-			&i.PathHash,
-		); err != nil {
+		var original_url string
+		if err := rows.Scan(&original_url); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, original_url)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

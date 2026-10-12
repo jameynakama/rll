@@ -13,14 +13,14 @@ import (
 type Querier interface {
 	BlockDomain(ctx context.Context, domain string) (int64, error)
 	CreateLink(ctx context.Context, arg CreateLinkParams) (Link, error)
-	DeleteLink(ctx context.Context, id int64) error
+	DeleteLinksByOriginalUrl(ctx context.Context, originalUrl string) (int64, error)
 	DeleteLinksForDomain(ctx context.Context, domain string) (int64, error)
 	GetLink(ctx context.Context, id int64) (Link, error)
 	GetLinkByOriginalUrl(ctx context.Context, originalUrl string) (Link, error)
 	GetLinkByReallyLongPath(ctx context.Context, reallyLongPath string) (Link, error)
 	IsDomainBlocked(ctx context.Context, host string) (bool, error)
 	ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error)
-	ListLinksSince(ctx context.Context, createTime pgtype.Timestamptz) ([]Link, error)
+	ListURLsCreatedOn(ctx context.Context, days []pgtype.Date) ([]string, error)
 }
 
 var _ Querier = (*Queries)(nil)

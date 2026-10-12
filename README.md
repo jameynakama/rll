@@ -81,8 +81,11 @@ enabled), new links are checked against Google Safe Browsing and flagged ones
 are rejected. If the check itself fails, the link is allowed through.
 
 New phishing domains often aren't listed yet when a link is created, so
-`cmd/sweep` re-checks the last 30 days of links and deletes any that have since
-been flagged. On the droplet it runs daily from a systemd timer; one-time setup:
+`cmd/sweep` re-checks links when they're 1, 3 and 7 days old and deletes every
+link to a url that has since been flagged. The API allows only 1,000 checks a
+day, shared with create-time checks, so the sweep can't re-check everything
+nightly; if it hits the limit it stops rather than eating the rest of the day's
+quota. On the droplet it runs daily from a systemd timer; one-time setup:
 
 ```bash
 sudo cp /app/rll/deploy/rll-sweep.{service,timer} /etc/systemd/system/

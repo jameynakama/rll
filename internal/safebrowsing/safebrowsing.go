@@ -4,6 +4,7 @@ package safebrowsing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,10 @@ const DefaultBaseURL = "https://safebrowsing.googleapis.com"
 // and whether this field appears is all we need, so we read the wire format
 // directly rather than pulling in generated types.
 const threatsField protowire.Number = 1
+
+// ErrRateLimited means the quota is spent. SearchUrls allows 1,000 requests a
+// day per project, shared by create-time checks and the nightly sweep.
+var ErrRateLimited = errors.New("safe browsing: rate limited")
 
 type Client struct {
 	baseURL string
@@ -51,6 +56,9 @@ func (c *Client) IsFlagged(ctx context.Context, rawURL string) (bool, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return false, ErrRateLimited
+	}
 	if resp.StatusCode != http.StatusOK {
 		return false, fmt.Errorf("safe browsing: status %d", resp.StatusCode)
 	}

@@ -17,11 +17,13 @@ INSERT INTO links (original_url, really_long_path, really_long_query, path_hash)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
--- name: ListLinksSince :many
-SELECT * FROM links WHERE create_time >= $1 ORDER BY id;
+-- name: ListURLsCreatedOn :many
+SELECT DISTINCT original_url FROM links
+WHERE (create_time AT TIME ZONE 'UTC')::date = ANY(@days::date[])
+ORDER BY original_url;
 
--- name: DeleteLink :exec
-DELETE FROM links WHERE id = $1;
+-- name: DeleteLinksByOriginalUrl :execrows
+DELETE FROM links WHERE original_url = $1;
 
 -- name: IsDomainBlocked :one
 SELECT EXISTS (
