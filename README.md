@@ -71,8 +71,46 @@ GET    /health
 GET    /api/v1/links?limit=20&offset=0
 GET    /api/v1/links/{id}
 POST   /api/v1/links
-PUT    /api/v1/links/{id}
-DELETE /api/v1/links/{id}
+GET    /api/v1/rll/*   (legacy; same redirect as /rll/*)
+```
+
+## Safe Browsing
+
+With `SAFE_BROWSING_API_KEY` set (a Google Cloud key with the Safe Browsing API
+enabled), new links are checked against Google Safe Browsing and flagged ones
+are rejected. If the check itself fails, the link is allowed through.
+
+New phishing domains often aren't listed yet when a link is created, so
+`cmd/sweep` re-checks the last 30 days of links and deletes any that have since
+been flagged. On the droplet it runs daily from a systemd timer; one-time setup:
+
+```bash
+sudo cp /app/rll/deploy/rll-sweep.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now rll-sweep.timer
+journalctl -u rll-sweep   # what it deleted
+```
+
+## Blocking a Domain
+
+For when a phishing/abuse report comes in (e.g. from DigitalOcean) for a domain
+Safe Browsing doesn't catch. On the droplet:
+
+```bash
+cd /app/rll && set -a && . ./.env && set +a
+bin/block bad-site.example
+```
+
+That blocks the domain and all its subdomains (`www.bad-site.example`, etc.) from
+new links, deletes every existing link to them, and prints how many it removed.
+Pass the bare domain (`bad-site.example`, not `www.bad-site.example` or a full url) so
+subdomains are covered. Running it again for the same domain is harmless.
+
+See what's blocked, or unblock (existing links stay deleted):
+
+```bash
+psql "$DATABASE_URL" -c "SELECT * FROM blocked_domains ORDER BY create_time"
+psql "$DATABASE_URL" -c "DELETE FROM blocked_domains WHERE domain = 'bad-site.example'"
 ```
 
 ## Adding a New Resource
@@ -90,8 +128,8 @@ DELETE /api/v1/links/{id}
 
 Integration tests run against a real ephemeral database created and destroyed
 each run. Set `TEST_DATABASE_URL` in `.env` pointing at the same Postgres
-instance as `DATABASE_URL` -- the test suite handles creating and dropping the
-test database automatically.
+instance as `DATABASE_URL` -- each package's tests create and drop their own
+`<that name>_<package>` database automatically.
 
 ```bash
 just test

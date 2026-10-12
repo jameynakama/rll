@@ -65,6 +65,20 @@ func (h *Handler) webCreateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	unsafe, err := h.isUnsafe(r.Context(), originalUrl)
+	if err != nil {
+		log.Printf("webCreateLink: %v", err)
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if unsafe {
+		w.WriteHeader(http.StatusBadRequest)
+		if err := indexTmpl.Execute(w, indexData{Error: "that url is flagged as unsafe", Input: originalUrl}); err != nil {
+			log.Printf("webCreateLink: render: %v", err)
+		}
+		return
+	}
+
 	path, query := urlgen.Generate()
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
 		OriginalUrl:     originalUrl,

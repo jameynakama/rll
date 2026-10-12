@@ -4,80 +4,28 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jameynakama/reallylonglink/internal/api"
+	"github.com/jameynakama/reallylonglink/internal/blocklist"
+	"github.com/jameynakama/reallylonglink/internal/safebrowsing"
 	"github.com/jameynakama/reallylonglink/internal/store"
+	"github.com/jameynakama/reallylonglink/internal/testdb"
 )
 
 var testPool *pgxpool.Pool
 
-func getRequiredEnvVar(key string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		log.Fatalf("%s must be set", key)
-	}
-	return v
-}
-
-func getDBConn(ctx context.Context, dbURL string) *pgxpool.Pool {
-	db, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		log.Fatalf("error establishing test database connection: %v", err)
-	}
-	if err := db.Ping(ctx); err != nil {
-		log.Fatalf("cannot ping test database %s: %v", dbURL, err)
-	}
-	return db
-}
-
 func TestMain(m *testing.M) {
-	testDBURL := getRequiredEnvVar("TEST_DATABASE_URL")
-	testDBName := getDBName(testDBURL)
-
-	ctx := context.Background()
-
-	pgDB := getDBConn(ctx, swapDBName(testDBURL, "postgres"))
-	pgDB.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
-	if _, err := pgDB.Exec(ctx, fmt.Sprintf("CREATE DATABASE %s", testDBName)); err != nil {
-		log.Fatal("could not create test database")
-	}
-
-	migrateURL := strings.Replace(testDBURL, "postgres://", "pgx5://", 1)
-	mig, err := migrate.New("file://../../migrations", migrateURL)
-	if err != nil {
-		log.Fatalf("could not create migrate instance: %v", err)
-	}
-	if err := mig.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		log.Fatalf("could not migrate test db: %v", err)
-	}
-
-	testPool = getDBConn(ctx, testDBURL)
-
+	pool, drop := testdb.Create("api")
+	testPool = pool
 	code := m.Run()
-
-	testPool.Close()
-	// Postgres refuses to drop a DB with active connections -- force evictions first
-	pgDB.Exec(ctx, `
-		SELECT pg_terminate_backend(pid)
-		FROM pg_stat_activity
-		WHERE datname = $1 AND pid <> pg_backend_pid()
-	`, testDBName)
-	pgDB.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
-	pgDB.Close()
-
+	drop()
 	os.Exit(code)
 }
 
@@ -86,9 +34,43 @@ func newTestServer(t *testing.T) http.Handler {
 	return api.NewRouter(api.RouterConfig{Queries: store.New(testPool)})
 }
 
+// newSafeBrowsingTestServer returns a router whose Safe Browsing lookups are
+// answered by sbHandler.
+func newSafeBrowsingTestServer(t *testing.T, sbHandler http.HandlerFunc) http.Handler {
+	t.Helper()
+	sb := httptest.NewServer(sbHandler)
+	t.Cleanup(sb.Close)
+	return api.NewRouter(api.RouterConfig{
+		Queries:      store.New(testPool),
+		SafeBrowsing: safebrowsing.New(sb.URL, "test-key"),
+	})
+}
+
+// flaggedResponse answers with a protobuf SearchUrlsResponse holding one
+// (empty) threat, which is all IsFlagged looks for.
+func flaggedResponse(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte{0x0a, 0x00})
+}
+
+func countLinks(t *testing.T) int {
+	t.Helper()
+	var n int
+	if err := testPool.QueryRow(context.Background(), "SELECT count(*) FROM links").Scan(&n); err != nil {
+		t.Fatalf("countLinks: %v", err)
+	}
+	return n
+}
+
+func blockDomain(t *testing.T, domain string) {
+	t.Helper()
+	if _, err := blocklist.Block(context.Background(), testPool, domain); err != nil {
+		t.Fatalf("blockDomain: %v", err)
+	}
+}
+
 func truncate(t *testing.T) {
 	t.Helper()
-	_, err := testPool.Exec(context.Background(), "TRUNCATE links RESTART IDENTITY CASCADE")
+	_, err := testPool.Exec(context.Background(), "TRUNCATE links, blocked_domains RESTART IDENTITY CASCADE")
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
@@ -106,30 +88,6 @@ func createTestLink(t *testing.T, originalUrl string, reallyLongPath string, rea
 		t.Fatalf("createTestLink: %v", err)
 	}
 	return link
-}
-
-func getDBName(dbURL string) string {
-	u, _ := url.Parse(dbURL)
-	return u.Path[1:]
-}
-
-func swapDBName(oldDB, newDB string) string {
-	u, _ := url.Parse(oldDB)
-	u.Path = "/" + newDB
-	return u.String()
-}
-
-func TestSwapDBName(t *testing.T) {
-	expected := "pg://hello:moto@some.place/woof?one=1&two=2"
-	if r := swapDBName("pg://hello:moto@some.place/meow?one=1&two=2", "woof"); r != expected {
-		t.Errorf("wanted %s but got %s", expected, r)
-	}
-}
-
-func TestGetDBName(t *testing.T) {
-	if r := getDBName("pg://hello:moto@some.place/woof?one=1&two=2"); r != "woof" {
-		t.Errorf("wanted woof but got %s", r)
-	}
 }
 
 func TestListLinks(t *testing.T) {
@@ -219,6 +177,77 @@ func TestCreateLink(t *testing.T) {
 	}
 	if _, err := store.New(testPool).GetLink(context.Background(), created.ID); err != nil {
 		t.Errorf("created link not found in db: %v", err)
+	}
+}
+
+// Should reject a url that Safe Browsing flags
+func TestCreateLinkFlagged(t *testing.T) {
+	truncate(t)
+	srv := newSafeBrowsingTestServer(t, flaggedResponse)
+
+	body := strings.NewReader(`{"original_url":"https://evil.example/"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400; got %d", w.Result().StatusCode)
+	}
+	if n := countLinks(t); n != 0 {
+		t.Errorf("expected no links created; got %d", n)
+	}
+}
+
+// Should create the link anyway when Safe Browsing can't be reached
+func TestCreateLinkSafeBrowsingDown(t *testing.T) {
+	truncate(t)
+	srv := newSafeBrowsingTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+
+	body := strings.NewReader(`{"original_url":"https://example.com"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Result().StatusCode != http.StatusCreated {
+		t.Errorf("expected 201; got %d: %s", w.Result().StatusCode, w.Body.String())
+	}
+}
+
+// Should create a link that Safe Browsing doesn't flag
+func TestCreateLinkNotFlagged(t *testing.T) {
+	truncate(t)
+	srv := newSafeBrowsingTestServer(t, func(w http.ResponseWriter, r *http.Request) {})
+
+	body := strings.NewReader(`{"original_url":"https://example.com"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Result().StatusCode != http.StatusCreated {
+		t.Errorf("expected 201; got %d: %s", w.Result().StatusCode, w.Body.String())
+	}
+}
+
+// Should reject a url on a blocked domain without asking Safe Browsing
+func TestCreateLinkBlockedDomain(t *testing.T) {
+	truncate(t)
+	blockDomain(t, "bad-site.example")
+	srv := newSafeBrowsingTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("expected no Safe Browsing call for a blocked domain")
+	})
+
+	body := strings.NewReader(`{"original_url":"https://www.bad-site.example/campaign/"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/links", body)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400; got %d", w.Result().StatusCode)
+	}
+	if n := countLinks(t); n != 0 {
+		t.Errorf("expected no links created; got %d", n)
 	}
 }
 

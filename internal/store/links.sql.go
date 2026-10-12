@@ -7,7 +7,21 @@ package store
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const blockDomain = `-- name: BlockDomain :execrows
+INSERT INTO blocked_domains (domain) VALUES ($1) ON CONFLICT DO NOTHING
+`
+
+func (q *Queries) BlockDomain(ctx context.Context, domain string) (int64, error) {
+	result, err := q.db.Exec(ctx, blockDomain, domain)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
 
 const createLink = `-- name: CreateLink :one
 INSERT INTO links (original_url, really_long_path, really_long_query, path_hash)
@@ -40,6 +54,27 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (Link, e
 		&i.PathHash,
 	)
 	return i, err
+}
+
+const deleteLink = `-- name: DeleteLink :exec
+DELETE FROM links WHERE id = $1
+`
+
+func (q *Queries) DeleteLink(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteLink, id)
+	return err
+}
+
+const deleteLinksForDomain = `-- name: DeleteLinksForDomain :execrows
+DELETE FROM links WHERE domain_matches(url_host(original_url), $1::text)
+`
+
+func (q *Queries) DeleteLinksForDomain(ctx context.Context, domain string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteLinksForDomain, domain)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getLink = `-- name: GetLink :one
@@ -99,6 +134,19 @@ func (q *Queries) GetLinkByReallyLongPath(ctx context.Context, reallyLongPath st
 	return i, err
 }
 
+const isDomainBlocked = `-- name: IsDomainBlocked :one
+SELECT EXISTS (
+    SELECT 1 FROM blocked_domains WHERE domain_matches($1::text, domain)
+)
+`
+
+func (q *Queries) IsDomainBlocked(ctx context.Context, host string) (bool, error) {
+	row := q.db.QueryRow(ctx, isDomainBlocked, host)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listLinks = `-- name: ListLinks :many
 SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links
 ORDER BY create_time DESC
@@ -112,6 +160,38 @@ type ListLinksParams struct {
 
 func (q *Queries) ListLinks(ctx context.Context, arg ListLinksParams) ([]Link, error) {
 	rows, err := q.db.Query(ctx, listLinks, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Link
+	for rows.Next() {
+		var i Link
+		if err := rows.Scan(
+			&i.ID,
+			&i.OriginalUrl,
+			&i.CreateTime,
+			&i.UpdateTime,
+			&i.ReallyLongPath,
+			&i.ReallyLongQuery,
+			&i.PathHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLinksSince = `-- name: ListLinksSince :many
+SELECT id, original_url, create_time, update_time, really_long_path, really_long_query, path_hash FROM links WHERE create_time >= $1 ORDER BY id
+`
+
+func (q *Queries) ListLinksSince(ctx context.Context, createTime pgtype.Timestamptz) ([]Link, error) {
+	rows, err := q.db.Query(ctx, listLinksSince, createTime)
 	if err != nil {
 		return nil, err
 	}

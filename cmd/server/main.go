@@ -8,12 +8,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jameynakama/reallylonglink/internal/api"
+	"github.com/jameynakama/reallylonglink/internal/safebrowsing"
 	"github.com/jameynakama/reallylonglink/internal/store"
 )
 
 type config struct {
-	databaseURL string
-	port        string
+	databaseURL        string
+	port               string
+	safeBrowsingAPIKey string
 }
 
 func loadConfig() config {
@@ -34,8 +36,9 @@ func loadConfig() config {
 	}
 
 	return config{
-		databaseURL: required("DATABASE_URL"),
-		port:        withDefault("PORT", "8080"),
+		databaseURL:        required("DATABASE_URL"),
+		port:               withDefault("PORT", "8080"),
+		safeBrowsingAPIKey: os.Getenv("SAFE_BROWSING_API_KEY"),
 	}
 }
 
@@ -56,6 +59,11 @@ func main() {
 	log.Println("database connected")
 
 	routerCfg := api.RouterConfig{Queries: store.New(db)}
+	if cfg.safeBrowsingAPIKey != "" {
+		routerCfg.SafeBrowsing = safebrowsing.New(safebrowsing.DefaultBaseURL, cfg.safeBrowsingAPIKey)
+	} else {
+		log.Println("SAFE_BROWSING_API_KEY not set; new links won't be checked")
+	}
 	r := api.NewRouter(routerCfg)
 
 	log.Printf("starting server at http://localhost:%s", cfg.port)

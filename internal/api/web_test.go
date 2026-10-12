@@ -46,6 +46,49 @@ func TestWebCreateLinkNoScheme(t *testing.T) {
 	}
 }
 
+// Should reject a url that Safe Browsing flags
+func TestWebCreateLinkFlagged(t *testing.T) {
+	truncate(t)
+	srv := newSafeBrowsingTestServer(t, flaggedResponse)
+	body := strings.NewReader("original_url=https://evil.example/")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "that url is flagged as unsafe") {
+		t.Errorf("expected error message in body; got %s", w.Body.String())
+	}
+	if n := countLinks(t); n != 0 {
+		t.Errorf("expected no links created; got %d", n)
+	}
+}
+
+// Should reject a url on a blocked domain, even with Safe Browsing off
+func TestWebCreateLinkBlockedDomain(t *testing.T) {
+	truncate(t)
+	blockDomain(t, "bad-site.example")
+	srv := newTestServer(t)
+	body := strings.NewReader("original_url=www.bad-site.example/campaign/")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400; got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "that url is flagged as unsafe") {
+		t.Errorf("expected error message in body; got %s", w.Body.String())
+	}
+	if n := countLinks(t); n != 0 {
+		t.Errorf("expected no links created; got %d", n)
+	}
+}
+
 func TestWebCreateLinkEmptyURL(t *testing.T) {
 	srv := newTestServer(t)
 	body := strings.NewReader("original_url=")

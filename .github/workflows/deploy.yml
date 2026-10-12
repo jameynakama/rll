@@ -45,6 +45,8 @@ jobs:
             cd /app/rll &&
             git pull origin main &&
             /usr/local/go/bin/go build -o bin/reallylonglink ./cmd/server &&
+            /usr/local/go/bin/go build -o bin/sweep ./cmd/sweep &&
+            /usr/local/go/bin/go build -o bin/block ./cmd/block &&
             set -a && source .env && set +a &&
             migrate -path migrations -database "$DATABASE_URL" up &&
             sudo systemctl restart rll

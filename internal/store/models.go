@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BlockedDomain struct {
+	Domain     string             `db:"domain" json:"domain"`
+	CreateTime pgtype.Timestamptz `db:"create_time" json:"create_time"`
+}
+
 type Link struct {
 	ID              int64              `db:"id" json:"id"`
 	OriginalUrl     string             `db:"original_url" json:"original_url"`

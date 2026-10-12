@@ -1,0 +1,9 @@
+[Unit]
+Description=reallylonglink: delete recent links Safe Browsing has flagged
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/app/rll
+EnvironmentFile=/app/rll/.env
+ExecStart=/app/rll/bin/sweep

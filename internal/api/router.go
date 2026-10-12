@@ -1,26 +1,34 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/jameynakama/reallylonglink/internal/blocklist"
+	"github.com/jameynakama/reallylonglink/internal/safebrowsing"
 	"github.com/jameynakama/reallylonglink/internal/store"
 )
 
 type RouterConfig struct {
 	Queries *store.Queries
+	// SafeBrowsing is nil when no API key is configured; links go unchecked.
+	SafeBrowsing *safebrowsing.Client
 }
 
 type Handler struct {
-	queries *store.Queries
+	queries      *store.Queries
+	safeBrowsing *safebrowsing.Client
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
 	h := &Handler{
-		queries: cfg.Queries,
+		queries:      cfg.Queries,
+		safeBrowsing: cfg.SafeBrowsing,
 	}
 
 	r := chi.NewRouter()
@@ -47,6 +55,25 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 func (h *Handler) healthCheck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// isUnsafe checks our blocklist, then Safe Browsing. A blocklist error is ours
+// and is returned; Safe Browsing fails open, since if it can't answer the
+// nightly sweep gets another look at the link.
+func (h *Handler) isUnsafe(ctx context.Context, originalUrl string) (bool, error) {
+	blocked, err := blocklist.IsBlocked(ctx, h.queries, originalUrl)
+	if err != nil || blocked {
+		return blocked, err
+	}
+	if h.safeBrowsing == nil {
+		return false, nil
+	}
+	flagged, err := h.safeBrowsing.IsFlagged(ctx, originalUrl)
+	if err != nil {
+		log.Printf("isUnsafe: safe browsing: %v", err)
+		return false, nil
+	}
+	return flagged, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

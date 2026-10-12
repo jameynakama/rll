@@ -82,6 +82,16 @@ func (h *Handler) createLink(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "original url is required")
 		return
 	}
+	unsafe, err := h.isUnsafe(r.Context(), req.OriginalUrl)
+	if err != nil {
+		log.Printf("createLink: %v", err)
+		writeError(w, http.StatusInternalServerError, "server error")
+		return
+	}
+	if unsafe {
+		writeError(w, http.StatusBadRequest, "that url is flagged as unsafe")
+		return
+	}
 
 	path, query := urlgen.Generate()
 	row, err := h.queries.CreateLink(r.Context(), store.CreateLinkParams{
